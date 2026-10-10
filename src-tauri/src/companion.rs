@@ -48,6 +48,17 @@ impl Rarity {
     }
 }
 
+pub const DIFFICULTY_RANGE: (f64, f64) = (0.1, 2.0);
+
+/// User growth multiplier: below 1 grows faster, above 1 slower. Bad saved values fall back to 1.
+pub fn clamp_difficulty(d: f64) -> f64 {
+    if d.is_finite() && d > 0.0 { d.clamp(DIFFICULTY_RANGE.0, DIFFICULTY_RANGE.1) } else { 1.0 }
+}
+
+pub fn scaled(base: u64, difficulty: f64) -> u64 {
+    ((base as f64 * clamp_difficulty(difficulty)).round() as u64).max(1)
+}
+
 /// Tokens needed to leave stage `stage_index` (0-based) of a `k`-form line.
 /// Stage i costs T·i / (k(k+1)/2), so every line of a rarity sums to the same total T.
 pub fn phase_threshold(rarity: Rarity, k: usize, stage_index: usize) -> u64 {
@@ -125,8 +136,8 @@ impl Mon {
     pub fn current_id(&self) -> u32 {
         self.path_ids[self.stage_index.min(self.path_ids.len() - 1)]
     }
-    pub fn threshold(&self) -> u64 {
-        phase_threshold(self.line.rarity, self.planned_ids.len(), self.stage_index)
+    pub fn threshold(&self, difficulty: f64) -> u64 {
+        scaled(phase_threshold(self.line.rarity, self.planned_ids.len(), self.stage_index), difficulty)
     }
 }
 
@@ -164,9 +175,43 @@ pub struct State {
     pub dex: Vec<DexEntry>,
     /// "base:final" pairs, used to prefer new branches and down-weight repeats.
     pub collected_finals: HashSet<String>,
+    /// Growth multiplier from Settings. 0 (older saves) means 1.
+    pub growth_difficulty: f64,
 }
 
 impl State {
+    pub fn difficulty(&self) -> f64 {
+        clamp_difficulty(self.growth_difficulty)
+    }
+
+    pub fn egg_threshold(&self) -> u64 {
+        scaled(EGG_HATCH_THRESHOLD, self.difficulty())
+    }
+
+    /// Changes the multiplier and rescales banked progress so the progress bars don't jump.
+    pub fn set_difficulty(&mut self, new: f64) {
+        let (old, new) = (self.difficulty(), clamp_difficulty(new));
+        let rescale = |v: u64| (v as f64 * new / old).round() as u64;
+        self.egg_usage = rescale(self.egg_usage);
+        if let Some(m) = self.active.as_mut() {
+            m.used_at_stage = rescale(m.used_at_stage);
+        }
+        self.growth_difficulty = new;
+    }
+
+    /// Localized species name from the active line or the Pokédex.
+    pub fn name_of(&self, id: u32, lang: &str) -> String {
+        let names = self
+            .active
+            .iter()
+            .map(|m| &m.line.names)
+            .chain(self.dex.iter().rev().map(|d| &d.names))
+            .find_map(|n| n.get(&id));
+        let pick = |l: &str| names.and_then(|n| n.get(l)).cloned();
+        let lang = if lang == "ja" { "ja-hrkt" } else { lang };
+        pick(lang).or_else(|| pick("en")).unwrap_or_else(|| format!("#{id}"))
+    }
+
     /// Credits today's per-provider growth since the last call. Returns the new tokens.
     pub fn credit(&mut self, today: &HashMap<String, u64>, date: &str) -> u64 {
         if !self.baseline_set {
@@ -199,7 +244,7 @@ impl State {
     }
 
     pub fn ready_to_hatch(&self) -> bool {
-        self.active.is_none() && self.baseline_set && self.egg_usage >= EGG_HATCH_THRESHOLD
+        self.active.is_none() && self.baseline_set && self.egg_usage >= self.egg_threshold()
     }
 
     /// Feeds tokens to the egg or the active Pokémon.
@@ -210,8 +255,9 @@ impl State {
         }
         self.active.as_mut().unwrap().used_at_stage += delta;
         let mut events = vec![];
+        let difficulty = self.difficulty();
         while let Some(mon) = self.active.as_mut() {
-            let thr = mon.threshold();
+            let thr = mon.threshold(difficulty);
             if mon.used_at_stage < thr {
                 break;
             }
@@ -268,7 +314,7 @@ impl State {
     }
 
     pub fn hatch(&mut self, line: Line, rng: &mut Rng) -> Vec<Event> {
-        let overflow = self.egg_usage.saturating_sub(EGG_HATCH_THRESHOLD);
+        let overflow = self.egg_usage.saturating_sub(self.egg_threshold());
         self.egg_usage = 0;
         let is_shiny = rng.u64(..) % SHINY_DENOMINATOR == 0;
         let nature = NATURES[rng.usize(..NATURES.len())].to_string();
@@ -359,7 +405,27 @@ pub fn choose_base(index: &[(u32, u32)], state: &State, rng: &mut Rng) -> Option
     None
 }
 
-/// JSON file persistence. A file that fails to parse is kept as `.corrupt` instead of overwritten.
+/// Reads a JSON file. One that fails to parse is kept as `.corrupt` instead of being overwritten.
+pub fn load_json<T: serde::de::DeserializeOwned + Default>(path: &Path) -> T {
+    match fs::read(path) {
+        Ok(bytes) => serde_json::from_slice(&bytes).unwrap_or_else(|_| {
+            let _ = fs::rename(path, path.with_extension("json.corrupt"));
+            T::default()
+        }),
+        Err(_) => T::default(),
+    }
+}
+
+/// Atomic write (temp file + rename) so a crash never leaves a half-written file.
+pub fn save_json<T: Serialize>(path: &Path, value: &T) {
+    let tmp = path.with_extension("json.tmp");
+    if let Ok(json) = serde_json::to_vec_pretty(value) {
+        if fs::write(&tmp, json).is_ok() {
+            let _ = fs::rename(&tmp, path);
+        }
+    }
+}
+
 pub struct Store {
     pub path: PathBuf,
     pub state: State,
@@ -367,23 +433,11 @@ pub struct Store {
 
 impl Store {
     pub fn load(path: PathBuf) -> Self {
-        let state = match fs::read(&path) {
-            Ok(bytes) => serde_json::from_slice(&bytes).unwrap_or_else(|_| {
-                let _ = fs::rename(&path, path.with_extension("json.corrupt"));
-                State::default()
-            }),
-            Err(_) => State::default(),
-        };
-        Store { path, state }
+        Store { state: load_json(&path), path }
     }
 
     pub fn save(&self) {
-        let tmp = self.path.with_extension("json.tmp");
-        if let Ok(json) = serde_json::to_vec_pretty(&self.state) {
-            if fs::write(&tmp, json).is_ok() {
-                let _ = fs::rename(&tmp, &self.path);
-            }
-        }
+        save_json(&self.path, &self.state);
     }
 
     pub fn dir(&self) -> &Path {
@@ -459,6 +513,17 @@ mod tests {
         assert!(s.active.is_none());
         assert_eq!(s.dex[0].chain, vec![1, 2, 3]);
         assert!(s.has_collected_base(1));
+    }
+
+    #[test]
+    fn difficulty_scales_and_rescales_progress() {
+        let mut s = State { baseline_set: true, ..Default::default() };
+        assert_eq!(s.egg_threshold(), EGG_HATCH_THRESHOLD); // 0 in old saves means 1
+        s.egg_usage = 1_000_000;
+        s.set_difficulty(2.0);
+        assert_eq!((s.egg_threshold(), s.egg_usage), (10_000_000, 2_000_000));
+        s.set_difficulty(50.0); // clamped
+        assert_eq!(s.difficulty(), 2.0);
     }
 
     #[test]

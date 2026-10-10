@@ -30,8 +30,6 @@ h2 { margin: 4px 0; font-size: 20px; }
 .progress { margin-top: 8px; }
 .bar { height: 8px; background: var(--track); border-radius: 4px; overflow: hidden; }
 .bar > div { height: 100%; background: var(--accent); transition: width 0.4s; }
-.dex { display: grid; grid-template-columns: repeat(auto-fill, minmax(48px, 1fr)); gap: 4px; margin-top: 8px; }
-.dex img { height: 48px; image-rendering: pixelated; object-fit: contain; }
 .toast { background: var(--accent); color: #fff; border-radius: 10px; padding: 10px; text-align: center; font-weight: 600; }
 
 /* Floating pet window: fully transparent, sprite sits on the bottom edge. */
@@ -44,3 +42,55 @@ h2 { margin: 4px 0; font-size: 20px; }
 .limit .muted { margin: 2px 0 0; font-size: 12px; }
 .bar > div.warn { background: #bf8700; }
 .bar > div.danger { background: #cf222e; }
+
+/* Controls */
+button, select, input { font: inherit; color: var(--fg); }
+button, select, input[type="text"], input:not([type]) {
+  background: var(--bg); border: 1px solid var(--track); border-radius: 8px; padding: 5px 9px;
+}
+button { cursor: pointer; }
+button:disabled { opacity: 0.4; cursor: default; }
+button.primary { background: var(--accent); border-color: var(--accent); color: #fff; }
+button.link { border: none; background: none; color: var(--accent); padding: 2px; }
+.actions { display: flex; justify-content: center; gap: 8px; margin-top: 10px; flex-wrap: wrap; }
+
+/* Tabs */
+.tabs { position: sticky; top: 0; z-index: 2; display: flex; gap: 4px; padding: 8px 12px; background: var(--bg); }
+.tabs button { flex: 1; border: none; background: none; color: var(--muted); font-weight: 600; }
+.tabs button.on { background: var(--card); color: var(--fg); }
+.tabs button.icon { flex: 0 0 auto; }
+.segmented { display: flex; background: var(--bg); border-radius: 8px; padding: 2px; margin-bottom: 8px; }
+.segmented button { flex: 1; border: none; background: none; color: var(--muted); }
+.segmented button.on { background: var(--card); color: var(--fg); box-shadow: 0 1px 2px rgba(0,0,0,0.15); }
+.segmented.small { margin: 0; }
+.segmented.small button { padding: 3px 8px; font-size: 13px; }
+
+/* Pokédex */
+.filters { display: flex; flex-direction: column; gap: 6px; margin-bottom: 8px; }
+.filters .row { justify-content: flex-start; gap: 6px; flex-wrap: wrap; align-items: center; }
+.check { display: flex; align-items: center; gap: 4px; font-size: 13px; color: var(--muted); }
+.dex-grid { display: grid; grid-template-columns: repeat(4, 1fr); gap: 6px; }
+.dex-cell { display: flex; flex-direction: column; align-items: center; padding: 6px 2px; min-width: 0; }
+.dex-cell img { height: 52px; width: 52px; object-fit: contain; image-rendering: pixelated; }
+.dex-no { font-size: 11px; color: var(--muted); font-variant-numeric: tabular-nums; }
+.dex-name { font-size: 12px; max-width: 100%; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.pager { display: flex; justify-content: center; align-items: center; gap: 12px; margin-top: 8px; }
+.log-row { display: flex; align-items: center; gap: 10px; padding: 8px 0; border-top: 1px solid var(--track); }
+.log-row .evo { margin: 0; justify-content: flex-start; flex-shrink: 0; }
+.modal { position: fixed; inset: 0; z-index: 3; background: rgba(0,0,0,0.45); display: flex; align-items: center; justify-content: center; padding: 16px; }
+.modal .card { width: 100%; max-width: 300px; }
+.sprite.big { height: 140px; }
+
+/* Settings */
+.settings h3 { margin: 0 0 6px; font-size: 12px; text-transform: uppercase; letter-spacing: 0.04em; color: var(--muted); }
+.setting-row { display: flex; justify-content: space-between; align-items: center; gap: 10px; padding: 8px 0; border-top: 1px solid var(--track); }
+.setting-row:first-of-type { border-top: none; }
+.hint { font-size: 11px; color: var(--muted); }
+.slider { display: flex; align-items: center; gap: 6px; }
+.slider input { width: 120px; accent-color: var(--accent); }
+.slider .value { width: 44px; text-align: right; font-size: 12px; font-variant-numeric: tabular-nums; }
+.switch { appearance: none; width: 36px; height: 20px; border-radius: 10px; background: var(--track); position: relative; cursor: pointer; flex-shrink: 0; transition: background 0.2s; }
+.switch::after { content: ""; position: absolute; top: 2px; left: 2px; width: 16px; height: 16px; border-radius: 50%; background: #fff; transition: transform 0.2s; }
+.switch:checked { background: var(--accent); }
+.switch:checked::after { transform: translateX(16px); }
+.switch:focus-visible, button:focus-visible, select:focus-visible, input:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
