@@ -1,14 +1,35 @@
 :root {
+  --fg: #1f2328;
+  --bg: #f6f8fa;
+  --card: #ffffff;
+  --muted: #59636e;
+  --track: #e5e8eb;
+  --accent: #2da44e;
   font-family: system-ui, sans-serif;
-  color: #1f2328;
-  background: #ffffff;
+  color: var(--fg);
+  background: var(--bg);
 }
 @media (prefers-color-scheme: dark) {
-  :root { color: #e6edf3; background: #161b22; }
+  :root { --fg: #e6edf3; --bg: #0d1117; --card: #161b22; --muted: #9198a1; --track: #30363d; }
 }
-.container { padding: 20px; }
-h1 { margin: 0; font-size: 40px; }
-.muted { margin: 4px 0 16px; opacity: 0.6; }
-table { width: 100%; border-collapse: collapse; }
-td { padding: 6px 0; }
-td:last-child { text-align: right; font-variant-numeric: tabular-nums; }
+body { margin: 0; }
+.container { padding: 12px; display: flex; flex-direction: column; gap: 10px; }
+.card { background: var(--card); border-radius: 12px; padding: 14px; }
+.center { text-align: center; }
+h2 { margin: 4px 0; font-size: 20px; }
+.muted { color: var(--muted); font-size: 13px; margin: 4px 0; }
+.sprite { height: 96px; image-rendering: pixelated; object-fit: contain; }
+.row { display: flex; justify-content: space-between; padding: 3px 0; font-variant-numeric: tabular-nums; }
+.badge { border-radius: 6px; padding: 1px 6px; font-size: 12px; color: #fff; background: #6e7781; }
+.badge.uncommon { background: #1f883d; }
+.badge.rare { background: #0969da; }
+.badge.legendary { background: #bf8700; }
+.evo { display: flex; justify-content: center; align-items: center; gap: 6px; margin: 8px 0; }
+.evo img { height: 36px; image-rendering: pixelated; }
+.mystery { width: 36px; height: 36px; line-height: 36px; border-radius: 50%; background: var(--track); color: var(--muted); }
+.progress { margin-top: 8px; }
+.bar { height: 8px; background: var(--track); border-radius: 4px; overflow: hidden; }
+.bar > div { height: 100%; background: var(--accent); transition: width 0.4s; }
+.dex { display: grid; grid-template-columns: repeat(auto-fill, minmax(48px, 1fr)); gap: 4px; margin-top: 8px; }
+.dex img { height: 48px; image-rendering: pixelated; object-fit: contain; }
+.toast { background: var(--accent); color: #fff; border-radius: 10px; padding: 10px; text-align: center; font-weight: 600; }

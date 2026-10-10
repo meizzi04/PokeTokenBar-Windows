@@ -15,7 +15,7 @@
         "label": "main",
         "title": "PokeTokenBar",
         "width": 360,
-        "height": 420,
+        "height": 560,
         "resizable": false,
         "visible": true,
         "skipTaskbar": true,
