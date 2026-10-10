@@ -24,6 +24,8 @@ export type Companion = {
   threshold: number | null;
   dex: DexEntry[];
 };
+type LimitWindow = { key: string; used_percent: number; resets_at: string | null };
+type ProviderLimits = { provider: string; windows: LimitWindow[]; error: string | null };
 type CompanionEvent =
   | { kind: "hatched"; id: number; shiny: boolean }
   | { kind: "evolved"; id: number }
@@ -42,6 +44,54 @@ const NATURE: Record<string, string> = {
   modest: "조심", mild: "의젓", quiet: "냉정", bashful: "수줍음", rash: "덜렁",
   calm: "차분", gentle: "얌전", sassy: "건방", careful: "신중", quirky: "변덕",
 };
+
+const PROVIDER: Record<string, string> = { claude: "Claude Code", codex: "Codex" };
+const WINDOW: Record<string, string> = { "5h": "5시간", "7d": "주간", "7d-opus": "주간 (Opus)", "7d-sonnet": "주간 (Sonnet)" };
+const LIMIT_ERROR: Record<string, string> = {
+  no_credentials: "로그인 정보 없음",
+  token_expired: "토큰 만료 · Claude Code를 한 번 실행하면 갱신돼요",
+  rate_limited: "잠시 후 다시 시도해요",
+  no_data: "기록 없음",
+};
+const windowName = (key: string) =>
+  WINDOW[key] ?? key.replace(/^(\d+)d$/, "$1일").replace(/^(\d+)h$/, "$1시간").replace(/^(\d+)m$/, "$1분");
+
+function resetIn(iso: string | null) {
+  if (!iso) return "";
+  const mins = Math.max(0, Math.round((Date.parse(iso) - Date.now()) / 60000));
+  const d = Math.floor(mins / 1440), h = Math.floor((mins % 1440) / 60), m = mins % 60;
+  const text = d > 0 ? `${d}일 ${h}시간` : h > 0 ? `${h}시간 ${m}분` : `${m}분`;
+  return `${text} 후 리셋`;
+}
+
+function LimitsCard({ all }: { all: ProviderLimits[] }) {
+  return (
+    <section className="card">
+      <strong>공식 한도</strong>
+      {all.map((p) => (
+        <div key={p.provider} className="limit-provider">
+          <p className="muted">{PROVIDER[p.provider] ?? p.provider}</p>
+          {p.error && <p className="muted">{LIMIT_ERROR[p.error] ?? p.error}</p>}
+          {p.windows.map((w) => (
+            <div key={w.key} className="limit">
+              <div className="row">
+                <span>{windowName(w.key)}</span>
+                <span>{Math.round(w.used_percent)}%</span>
+              </div>
+              <div className="bar">
+                <div
+                  className={w.used_percent >= 95 ? "danger" : w.used_percent >= 80 ? "warn" : ""}
+                  style={{ width: `${Math.min(100, w.used_percent)}%` }}
+                />
+              </div>
+              <p className="muted">{resetIn(w.resets_at)}</p>
+            </div>
+          ))}
+        </div>
+      ))}
+    </section>
+  );
+}
 
 const sum = (t: Tokens) => t.input + t.output + t.cache_write + t.cache_read;
 export const fmt = new Intl.NumberFormat(undefined, { notation: "compact", maximumFractionDigits: 1 });
@@ -112,12 +162,15 @@ function eventText(e: CompanionEvent, c: Companion | null) {
 function App() {
   const [usage, setUsage] = useState<TodayUsage | null>(null);
   const [companion, setCompanion] = useState<Companion | null>(null);
+  const [limits, setLimits] = useState<ProviderLimits[]>([]);
   const [toast, setToast] = useState<CompanionEvent | null>(null);
 
   useEffect(() => {
     invoke<TodayUsage>("today_usage").then(setUsage);
     invoke<Companion>("companion").then(setCompanion);
+    invoke<ProviderLimits[]>("limits").then(setLimits);
     const subs = [
+      listen<ProviderLimits[]>("limits", (e) => setLimits(e.payload)),
       listen<TodayUsage>("usage", (e) => setUsage(e.payload)),
       listen<Companion>("companion", (e) => setCompanion(e.payload)),
       listen<CompanionEvent>("companion-event", (e) => {
@@ -143,6 +196,8 @@ function App() {
           <div className="row muted"><span>Codex</span><span>{fmt.format(sum(usage.codex))}</span></div>
         </section>
       )}
+
+      {limits.length > 0 && <LimitsCard all={limits} />}
 
       {companion && companion.dex.length > 0 && (
         <section className="card">

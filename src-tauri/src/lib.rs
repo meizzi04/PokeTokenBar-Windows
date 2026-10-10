@@ -1,4 +1,5 @@
 mod companion;
+mod limits;
 mod pokeapi;
 mod usage;
 
@@ -15,8 +16,22 @@ use tauri::{
 
 const TRAY_ID: &str = "main";
 const REFRESH: Duration = Duration::from_secs(60);
+/// The limits API is polled less often than local logs are read.
+const LIMITS_REFRESH: Duration = Duration::from_secs(5 * 60);
 
 type SharedStore = Mutex<Store>;
+type SharedLimits = Mutex<Vec<limits::ProviderLimits>>;
+
+#[tauri::command]
+fn limits(state: State<SharedLimits>) -> Vec<limits::ProviderLimits> {
+    state.lock().unwrap().clone()
+}
+
+fn refresh_limits(app: &AppHandle) {
+    let all = limits::read_all();
+    *app.state::<SharedLimits>().lock().unwrap() = all.clone();
+    let _ = app.emit("limits", all);
+}
 
 #[tauri::command]
 fn today_usage() -> usage::TodayUsage {
@@ -71,7 +86,9 @@ fn refresh(app: &AppHandle) {
     let u = usage::read_today();
     if let Some(tray) = app.tray_by_id(TRAY_ID) {
         let label = usage::compact(u.total);
-        let _ = tray.set_tooltip(Some(format!("PokeTokenBar · today {label}")));
+        let peak = limits::peak(&app.state::<SharedLimits>().lock().unwrap());
+        let limit = peak.map(|p| format!(" · limit {p:.0}%")).unwrap_or_default();
+        let _ = tray.set_tooltip(Some(format!("PokeTokenBar · today {label}{limit}")));
         // Text next to the icon only renders on macOS; Windows shows the tooltip.
         let _ = tray.set_title(Some(label));
     }
@@ -127,7 +144,7 @@ pub fn run() {
     tauri::Builder::default()
         .plugin(tauri_plugin_window_state::Builder::new().build())
         .plugin(tauri_plugin_opener::init())
-        .invoke_handler(tauri::generate_handler![today_usage, companion, toggle_window, quit])
+        .invoke_handler(tauri::generate_handler![today_usage, companion, limits, toggle_window, quit])
         .setup(|app| {
             // Menu bar app like the original: no Dock icon.
             #[cfg(target_os = "macos")]
@@ -135,6 +152,7 @@ pub fn run() {
 
             let dir = app.path().app_data_dir()?;
             std::fs::create_dir_all(&dir)?;
+            app.manage::<SharedLimits>(Mutex::new(vec![]));
             app.manage::<SharedStore>(Mutex::new(Store::load(dir.join("companion.json"))));
 
             let refresh_i = MenuItem::with_id(app, "refresh", "Refresh", true, None::<&str>)?;
@@ -150,7 +168,10 @@ pub fn run() {
                     "refresh" => {
                         // Off the UI thread: a hatch may hit the network.
                         let app = app.clone();
-                        std::thread::spawn(move || refresh(&app));
+                        std::thread::spawn(move || {
+                            refresh_limits(&app);
+                            refresh(&app);
+                        });
                     }
                     "pet" => toggle(app, "pet"),
                     "quit" => app.exit(0),
@@ -168,6 +189,13 @@ pub fn run() {
                 })
                 .build(app)?;
 
+            let handle = app.handle().clone();
+            std::thread::spawn(move || {
+                loop {
+                    refresh_limits(&handle);
+                    std::thread::sleep(LIMITS_REFRESH);
+                }
+            });
             let handle = app.handle().clone();
             std::thread::spawn(move || {
                 loop {
