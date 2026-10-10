@@ -45,7 +45,9 @@ fn n(v: &Value, key: &str) -> u64 {
 }
 
 fn local_day(ts: &str) -> Option<NaiveDate> {
-    DateTime::parse_from_rfc3339(ts).ok().map(|d| d.with_timezone(&Local).date_naive())
+    DateTime::parse_from_rfc3339(ts)
+        .ok()
+        .map(|d| d.with_timezone(&Local).date_naive())
 }
 
 /// Returns `(dedup key, tokens)` for a Claude assistant line logged on `day`.
@@ -100,7 +102,9 @@ pub fn parse_codex_line(line: &str, day: NaiveDate) -> Option<Tokens> {
 
 /// `*.jsonl` under `root`, modified on/after `since`.
 fn jsonl_files(root: &Path, since: SystemTime, out: &mut Vec<PathBuf>) {
-    let Ok(entries) = fs::read_dir(root) else { return };
+    let Ok(entries) = fs::read_dir(root) else {
+        return;
+    };
     for e in entries.flatten() {
         let path = e.path();
         let Ok(meta) = e.metadata() else { continue };
@@ -132,7 +136,9 @@ fn start_of_today() -> SystemTime {
 
 // ponytail: full rescan each refresh. Add per-file (mtime, offset) cache when logs get large.
 pub fn read_today() -> TodayUsage {
-    let Some(home) = std::env::home_dir() else { return TodayUsage::default() };
+    let Some(home) = std::env::home_dir() else {
+        return TodayUsage::default();
+    };
     let day = Local::now().date_naive();
     let since = start_of_today();
 
@@ -165,7 +171,11 @@ pub fn read_today() -> TodayUsage {
         }
     }
 
-    TodayUsage { total: claude.total() + codex.total(), claude, codex }
+    TodayUsage {
+        total: claude.total() + codex.total(),
+        claude,
+        codex,
+    }
 }
 
 /// `200.7M` style compact number, like the original menu bar label.
@@ -209,7 +219,15 @@ mod tests {
             today_ts()
         );
         let t = parse_codex_line(&line, day).unwrap();
-        assert_eq!(t, Tokens { input: 40, output: 5, cache_write: 0, cache_read: 60 });
+        assert_eq!(
+            t,
+            Tokens {
+                input: 40,
+                output: 5,
+                cache_write: 0,
+                cache_read: 60
+            }
+        );
     }
 
     #[test]

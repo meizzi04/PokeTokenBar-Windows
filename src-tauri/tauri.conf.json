@@ -21,11 +21,26 @@
         "skipTaskbar": true,
         "alwaysOnTop": true,
         "center": true
+      },
+      {
+        "label": "pet",
+        "url": "index.html#pet",
+        "title": "PokeTokenBar Pet",
+        "width": 120,
+        "height": 120,
+        "transparent": true,
+        "decorations": false,
+        "shadow": false,
+        "alwaysOnTop": true,
+        "skipTaskbar": true,
+        "resizable": false,
+        "visible": true
       }
     ],
     "security": {
       "csp": null
-    }
+    },
+    "macOSPrivateApi": true
   },
   "bundle": {
     "active": true,

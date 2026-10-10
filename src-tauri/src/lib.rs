@@ -2,15 +2,15 @@ mod companion;
 mod pokeapi;
 mod usage;
 
-use companion::{Store, EGG_HATCH_THRESHOLD};
-use serde_json::{json, Value};
+use companion::{EGG_HATCH_THRESHOLD, Store};
+use serde_json::{Value, json};
 use std::collections::HashMap;
 use std::sync::Mutex;
 use std::time::Duration;
 use tauri::{
+    AppHandle, Emitter, Manager, State, WindowEvent,
     menu::{Menu, MenuItem},
     tray::{MouseButton, MouseButtonState, TrayIconBuilder, TrayIconEvent},
-    AppHandle, Emitter, Manager, State, WindowEvent,
 };
 
 const TRAY_ID: &str = "main";
@@ -51,11 +51,15 @@ fn hatch_if_ready(app: &AppHandle, rng: &mut fastrand::Rng) -> Vec<companion::Ev
         s.dir().to_path_buf()
     };
     // Any failure keeps the egg; the next tick retries.
-    let Ok(index) = pokeapi::base_index(&dir) else { return vec![] };
+    let Ok(index) = pokeapi::base_index(&dir) else {
+        return vec![];
+    };
     let Some(base) = companion::choose_base(&index, &store.lock().unwrap().state, rng) else {
         return vec![];
     };
-    let Ok(line) = pokeapi::line(base) else { return vec![] };
+    let Ok(line) = pokeapi::line(base) else {
+        return vec![];
+    };
     let mut s = store.lock().unwrap();
     if !s.state.ready_to_hatch() {
         return vec![];
@@ -95,8 +99,21 @@ fn refresh(app: &AppHandle) {
     }
 }
 
-fn toggle_window(app: &AppHandle) {
-    let Some(w) = app.get_webview_window("main") else { return };
+#[tauri::command]
+fn toggle_window(app: AppHandle, label: String) {
+    toggle(&app, &label);
+}
+
+#[tauri::command]
+fn quit(app: AppHandle) {
+    app.exit(0);
+}
+
+/// "main" is the usage popover, "pet" the floating Pokémon.
+fn toggle(app: &AppHandle, label: &str) {
+    let Some(w) = app.get_webview_window(label) else {
+        return;
+    };
     if w.is_visible().unwrap_or(false) {
         let _ = w.hide();
     } else {
@@ -108,8 +125,9 @@ fn toggle_window(app: &AppHandle) {
 #[cfg_attr(mobile, tauri::mobile_entry_point)]
 pub fn run() {
     tauri::Builder::default()
+        .plugin(tauri_plugin_window_state::Builder::new().build())
         .plugin(tauri_plugin_opener::init())
-        .invoke_handler(tauri::generate_handler![today_usage, companion])
+        .invoke_handler(tauri::generate_handler![today_usage, companion, toggle_window, quit])
         .setup(|app| {
             // Menu bar app like the original: no Dock icon.
             #[cfg(target_os = "macos")]
@@ -120,8 +138,9 @@ pub fn run() {
             app.manage::<SharedStore>(Mutex::new(Store::load(dir.join("companion.json"))));
 
             let refresh_i = MenuItem::with_id(app, "refresh", "Refresh", true, None::<&str>)?;
+            let pet_i = MenuItem::with_id(app, "pet", "Show/Hide Pet", true, None::<&str>)?;
             let quit_i = MenuItem::with_id(app, "quit", "Quit", true, None::<&str>)?;
-            let menu = Menu::with_items(app, &[&refresh_i, &quit_i])?;
+            let menu = Menu::with_items(app, &[&refresh_i, &pet_i, &quit_i])?;
 
             TrayIconBuilder::with_id(TRAY_ID)
                 .icon(app.default_window_icon().unwrap().clone())
@@ -133,6 +152,7 @@ pub fn run() {
                         let app = app.clone();
                         std::thread::spawn(move || refresh(&app));
                     }
+                    "pet" => toggle(app, "pet"),
                     "quit" => app.exit(0),
                     _ => {}
                 })
@@ -143,15 +163,17 @@ pub fn run() {
                         ..
                     } = e
                     {
-                        toggle_window(tray.app_handle());
+                        toggle(tray.app_handle(), "main");
                     }
                 })
                 .build(app)?;
 
             let handle = app.handle().clone();
-            std::thread::spawn(move || loop {
-                refresh(&handle);
-                std::thread::sleep(REFRESH);
+            std::thread::spawn(move || {
+                loop {
+                    refresh(&handle);
+                    std::thread::sleep(REFRESH);
+                }
             });
             Ok(())
         })

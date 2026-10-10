@@ -1,7 +1,7 @@
 //! PokéAPI: hatch candidates (GraphQL, cached on disk) and evolution lines (REST).
 
-use crate::companion::{EvoNode, Line, Names, Rarity, DITTO_ID, MAX_SPECIES_ID};
-use serde_json::{json, Value};
+use crate::companion::{DITTO_ID, EvoNode, Line, MAX_SPECIES_ID, Names, Rarity};
+use serde_json::{Value, json};
 use std::collections::HashMap;
 use std::fs;
 use std::path::Path;
@@ -14,19 +14,27 @@ const INDEX_TTL: Duration = Duration::from_secs(30 * 86400);
 const LANGS: [&str; 4] = ["ko", "en", "ja-hrkt", "ja"];
 
 fn agent() -> ureq::Agent {
-    ureq::AgentBuilder::new().timeout(Duration::from_secs(15)).build()
+    ureq::AgentBuilder::new()
+        .timeout(Duration::from_secs(15))
+        .build()
 }
 
 fn get(url: &str) -> Result<Value, String> {
-    agent().get(url).call().map_err(|e| e.to_string())?.into_json().map_err(|e| e.to_string())
+    agent()
+        .get(url)
+        .call()
+        .map_err(|e| e.to_string())?
+        .into_json()
+        .map_err(|e| e.to_string())
 }
 
 /// `(species id, capture rate)` for every line start up to #649, Ditto excluded.
 /// Disk cache first; a stale cache still beats nothing when offline.
 pub fn base_index(cache_dir: &Path) -> Result<Vec<(u32, u32)>, String> {
     let file = cache_dir.join("base-index.json");
-    let cached: Option<Vec<(u32, u32)>> =
-        fs::read(&file).ok().and_then(|b| serde_json::from_slice(&b).ok());
+    let cached: Option<Vec<(u32, u32)>> = fs::read(&file)
+        .ok()
+        .and_then(|b| serde_json::from_slice(&b).ok());
     let fresh = fs::metadata(&file)
         .and_then(|m| m.modified())
         .is_ok_and(|m| SystemTime::now().duration_since(m).unwrap_or_default() < INDEX_TTL);
@@ -72,7 +80,11 @@ fn id_from_url(url: &str) -> Option<u32> {
 fn chain_node(link: &Value) -> Option<EvoNode> {
     Some(EvoNode {
         id: id_from_url(link["species"]["url"].as_str()?)?,
-        children: link["evolves_to"].as_array()?.iter().filter_map(chain_node).collect(),
+        children: link["evolves_to"]
+            .as_array()?
+            .iter()
+            .filter_map(chain_node)
+            .collect(),
     })
 }
 
@@ -96,7 +108,9 @@ pub fn line(base_id: u32) -> Result<Line, String> {
         species["is_legendary"].as_bool().unwrap_or(false)
             || species["is_mythical"].as_bool().unwrap_or(false),
     );
-    let chain_url = species["evolution_chain"]["url"].as_str().ok_or("no evolution chain")?;
+    let chain_url = species["evolution_chain"]["url"]
+        .as_str()
+        .ok_or("no evolution chain")?;
     if !chain_url.starts_with(REST) {
         return Err(format!("unexpected chain url {chain_url}"));
     }
@@ -109,7 +123,12 @@ pub fn line(base_id: u32) -> Result<Line, String> {
     for id in tree.all_ids().into_iter().filter(|id| *id != base_id) {
         names.insert(id, names_of(&get(&format!("{REST}/pokemon-species/{id}"))?));
     }
-    Ok(Line { base_id, tree, rarity, names })
+    Ok(Line {
+        base_id,
+        tree,
+        rarity,
+        names,
+    })
 }
 
 #[cfg(test)]
@@ -129,7 +148,10 @@ mod tests {
         let sp = json!({ "names": [
             { "language": { "name": "ko" }, "name": "이브이" },
             { "language": { "name": "fr" }, "name": "Évoli" } ] });
-        assert_eq!(names_of(&sp), HashMap::from([("ko".into(), "이브이".into())]));
+        assert_eq!(
+            names_of(&sp),
+            HashMap::from([("ko".into(), "이브이".into())])
+        );
     }
 
     /// `cargo test live_line -- --ignored` hits the real API.
@@ -137,7 +159,12 @@ mod tests {
     #[ignore]
     fn live_line() {
         let l = line(133).unwrap();
-        println!("{:?} {:?} {:?}", l.rarity, l.tree.all_ids(), l.names.get(&133));
+        println!(
+            "{:?} {:?} {:?}",
+            l.rarity,
+            l.tree.all_ids(),
+            l.names.get(&133)
+        );
         let idx = fetch_base_index().unwrap();
         println!("{} bases", idx.len());
     }

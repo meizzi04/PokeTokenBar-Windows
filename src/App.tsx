@@ -4,7 +4,7 @@ import { listen } from "@tauri-apps/api/event";
 import "./App.css";
 
 type Tokens = { input: number; output: number; cache_write: number; cache_read: number };
-type TodayUsage = { claude: Tokens; codex: Tokens; total: number };
+export type TodayUsage = { claude: Tokens; codex: Tokens; total: number };
 type Rarity = "common" | "uncommon" | "rare" | "legendary";
 type Names = Record<string, Record<string, string>>;
 type Mon = {
@@ -17,7 +17,7 @@ type Mon = {
   nature: string;
 };
 type DexEntry = { final_id: number; chain: number[]; rarity: Rarity; is_shiny: boolean; names: Names };
-type Companion = {
+export type Companion = {
   active: Mon | null;
   egg_usage: number;
   egg_threshold: number;
@@ -30,9 +30,9 @@ type CompanionEvent =
   | { kind: "graduated"; id: number };
 
 const SPRITES = "https://raw.githubusercontent.com/PokeAPI/sprites/master/sprites/pokemon";
-const sprite = (id: number, shiny = false) =>
+export const sprite = (id: number, shiny = false) =>
   `${SPRITES}/versions/generation-v/black-white/animated/${shiny ? "shiny/" : ""}${id}.gif`;
-const EGG = `${SPRITES}/egg.png`;
+export const EGG = `${SPRITES}/egg.png`;
 
 const RARITY: Record<Rarity, string> = { common: "일반", uncommon: "고급", rare: "희귀", legendary: "전설" };
 const NATURE: Record<string, string> = {
@@ -44,8 +44,8 @@ const NATURE: Record<string, string> = {
 };
 
 const sum = (t: Tokens) => t.input + t.output + t.cache_write + t.cache_read;
-const fmt = new Intl.NumberFormat(undefined, { notation: "compact", maximumFractionDigits: 1 });
-const nameOf = (names: Names, id: number) => {
+export const fmt = new Intl.NumberFormat(undefined, { notation: "compact", maximumFractionDigits: 1 });
+export const nameOf = (names: Names, id: number) => {
   const n = names[id] ?? {};
   return n.ko ?? n.en ?? `#${id}`;
 };

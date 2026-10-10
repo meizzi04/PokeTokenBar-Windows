@@ -88,7 +88,11 @@ impl EvoNode {
     pub fn keep_animated(&self) -> Option<EvoNode> {
         (self.id <= MAX_SPECIES_ID).then(|| EvoNode {
             id: self.id,
-            children: self.children.iter().filter_map(EvoNode::keep_animated).collect(),
+            children: self
+                .children
+                .iter()
+                .filter_map(EvoNode::keep_animated)
+                .collect(),
         })
     }
 }
@@ -242,7 +246,8 @@ impl State {
     fn graduate(&mut self) -> Event {
         let mon = self.active.take().unwrap();
         let final_id = mon.current_id();
-        self.collected_finals.insert(format!("{}:{}", mon.line.base_id, final_id));
+        self.collected_finals
+            .insert(format!("{}:{}", mon.line.base_id, final_id));
         let names = mon
             .path_ids
             .iter()
@@ -278,7 +283,10 @@ impl State {
             is_shiny,
             nature,
         });
-        let mut events = vec![Event::Hatched { id: base_id, shiny: is_shiny }];
+        let mut events = vec![Event::Hatched {
+            id: base_id,
+            shiny: is_shiny,
+        }];
         events.extend(self.feed(overflow, rng));
         events
     }
@@ -290,13 +298,26 @@ impl State {
 }
 
 /// Prefer a child that still leads to an uncollected final form.
-fn pick_child<'a>(node: &'a EvoNode, base: u32, collected: &HashSet<String>, rng: &mut Rng) -> &'a EvoNode {
+fn pick_child<'a>(
+    node: &'a EvoNode,
+    base: u32,
+    collected: &HashSet<String>,
+    rng: &mut Rng,
+) -> &'a EvoNode {
     let fresh: Vec<&EvoNode> = node
         .children
         .iter()
-        .filter(|c| c.final_ids().iter().any(|f| !collected.contains(&format!("{base}:{f}"))))
+        .filter(|c| {
+            c.final_ids()
+                .iter()
+                .any(|f| !collected.contains(&format!("{base}:{f}")))
+        })
         .collect();
-    let pool: Vec<&EvoNode> = if fresh.is_empty() { node.children.iter().collect() } else { fresh };
+    let pool: Vec<&EvoNode> = if fresh.is_empty() {
+        node.children.iter().collect()
+    } else {
+        fresh
+    };
     pool[rng.usize(..pool.len())]
 }
 
@@ -317,7 +338,11 @@ pub fn choose_base(index: &[(u32, u32)], state: &State, rng: &mut Rng) -> Option
         .iter()
         .map(|&(id, rate)| {
             let w = rate.max(1) as u64;
-            if state.has_collected_base(id) { (w / 2).max(1) } else { w }
+            if state.has_collected_base(id) {
+                (w / 2).max(1)
+            } else {
+                w
+            }
         })
         .collect();
     let total: u64 = weights.iter().sum();
@@ -413,7 +438,10 @@ mod tests {
     #[test]
     fn hatch_evolve_graduate_with_overflow() {
         let mut rng = Rng::with_seed(7);
-        let mut s = State { baseline_set: true, ..Default::default() };
+        let mut s = State {
+            baseline_set: true,
+            ..Default::default()
+        };
         s.feed(EGG_HATCH_THRESHOLD + 1_000, &mut rng);
         assert!(s.ready_to_hatch());
         let ev = s.hatch(bulbasaur(), &mut rng);
@@ -446,7 +474,10 @@ mod tests {
     #[test]
     fn keep_animated_cuts_late_gen_evolutions() {
         let tree = node(439, vec![node(122, vec![node(866, vec![])])]);
-        assert_eq!(tree.keep_animated().unwrap(), node(439, vec![node(122, vec![])]));
+        assert_eq!(
+            tree.keep_animated().unwrap(),
+            node(439, vec![node(122, vec![])])
+        );
     }
 
     #[test]
@@ -455,7 +486,9 @@ mod tests {
         let mut s = State::default();
         s.collected_finals.insert("1:3".into());
         let index = [(1, 100), (4, 100)];
-        let picks = (0..3000).filter(|_| choose_base(&index, &s, &mut rng) == Some(1)).count();
+        let picks = (0..3000)
+            .filter(|_| choose_base(&index, &s, &mut rng) == Some(1))
+            .count();
         assert!((800..1200).contains(&picks), "{picks}"); // ~1/3
     }
 }
