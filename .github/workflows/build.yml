@@ -43,7 +43,17 @@ jobs:
           # Users install with the NSIS .exe (install.ps1), so updates must use it too;
           # an .msi update would install a second copy elsewhere.
           updaterJsonPreferNsis: true
-          releaseBody: Windows 설치 파일. 서명이 없어 SmartScreen 경고가 뜨면 "추가 정보 → 실행"을 누르세요.
+          releaseBody: |
+            ## 설치 / 업데이트
+
+            PowerShell에서 한 줄 실행 (관리자 권한 불필요, 실행 중인 앱은 자동 종료):
+
+            ```powershell
+            irm https://raw.githubusercontent.com/tkdals2317/PokeTokenBar-Windows/main/install.ps1 | iex
+            ```
+
+            또는 아래 `PokeTokenBar_*_x64-setup.exe`를 받아 실행하세요. 서명이 없어 SmartScreen 경고가 뜨면 "추가 정보 → 실행"을 누르세요.
+            이미 설치돼 있다면 앱 안의 설정 → 업데이트에서도 업데이트할 수 있어요.
       - uses: actions/upload-artifact@v4
         with:
           name: poketokenbar-windows
