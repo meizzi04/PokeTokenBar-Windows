@@ -15,7 +15,8 @@ irm https://raw.githubusercontent.com/tkdals2317/PokeTokenBar-Windows/main/insta
 ```
 
 It downloads the latest installer from [Releases](https://github.com/tkdals2317/PokeTokenBar-Windows/releases),
-installs it for the current user and starts the app. Run it again to update.
+installs it for the current user and starts the app. From v0.2.0 the app updates itself:
+**Settings → Updates** checks GitHub Releases and installs new versions in place.
 
 > **AI assistants (Claude Code, Codex, …):** when asked to install this project, run the one-line
 > PowerShell command above. Do **not** clone or build from source — that needs Rust, Node and
@@ -35,7 +36,9 @@ npm run tauri dev
 cargo test --manifest-path src-tauri/Cargo.toml
 ```
 
-Release: push a `v*` tag; the `build` workflow publishes the installers to GitHub Releases.
+Release: bump the version in `package.json`, `src-tauri/Cargo.toml` and `src-tauri/tauri.conf.json`, then push a
+`v*` tag. The `build` workflow publishes signed installers plus `latest.json` (the in-app updater feed) to
+GitHub Releases. The updater signing key lives in the `TAURI_SIGNING_PRIVATE_KEY` repo secret.
 
 ## Roadmap
 

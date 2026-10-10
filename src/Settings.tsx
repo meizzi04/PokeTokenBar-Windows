@@ -1,7 +1,18 @@
 import { ReactNode, useEffect, useState } from "react";
 import { invoke } from "@tauri-apps/api/core";
+import { getVersion } from "@tauri-apps/api/app";
 import { LANG_LABELS, Lang } from "./i18n";
-import { Companion, PET_SIZE, Settings, nameOf, ownedSpecies, petSize, resizePet, useI18n } from "./shared";
+import {
+  Companion,
+  PET_SIZE,
+  Settings,
+  nameOf,
+  ownedSpecies,
+  petSize,
+  resizePet,
+  useI18n,
+  useUpdater,
+} from "./shared";
 
 const INTERVALS = [1, 2, 5, 10, 15, 0];
 
@@ -40,7 +51,41 @@ const Toggle = ({ on, set }: { on: boolean; set: (v: boolean) => void }) => (
   <input type="checkbox" className="switch" checked={on} onChange={(e) => set(e.target.checked)} />
 );
 
-export default function SettingsView(props: { c: Companion; settings: Settings; saveSettings: (s: Settings) => void }) {
+function UpdateSection({ updater }: { updater: ReturnType<typeof useUpdater> }) {
+  const { t } = useI18n();
+  const [version, setVersion] = useState("");
+  useEffect(() => {
+    getVersion().then(setVersion);
+  }, []);
+  const s = updater.state;
+  const status =
+    s.status === "checking" ? t.checking
+    : s.status === "none" ? t.upToDate
+    : s.status === "error" ? t.updateError
+    : s.status === "available" ? t.updateAvailable(s.update.version)
+    : s.status === "downloading" ? t.downloading(Math.round(s.progress * 100))
+    : "";
+  return (
+    <Section title={t.updates}>
+      <Row label={t.currentVersion(version)} hint={status}>
+        {s.status === "available" ? (
+          <button className="primary" onClick={updater.install}>{t.updateNow}</button>
+        ) : (
+          <button disabled={s.status === "checking" || s.status === "downloading"} onClick={updater.checkNow}>
+            {t.checkUpdates}
+          </button>
+        )}
+      </Row>
+    </Section>
+  );
+}
+
+export default function SettingsView(props: {
+  c: Companion;
+  settings: Settings;
+  saveSettings: (s: Settings) => void;
+  updater: ReturnType<typeof useUpdater>;
+}) {
   const { t, lang } = useI18n();
   const { settings: s, saveSettings } = props;
   const set = <K extends keyof Settings>(k: K, v: Settings[K]) => saveSettings({ ...s, [k]: v });
@@ -59,6 +104,7 @@ export default function SettingsView(props: { c: Companion; settings: Settings; 
 
   return (
     <>
+      <UpdateSection updater={props.updater} />
       <Section title={t.general}>
         <Row label={t.language}>
           <select value={s.language} onChange={(e) => set("language", e.target.value as Lang)}>

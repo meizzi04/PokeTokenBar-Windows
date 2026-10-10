@@ -79,6 +79,15 @@ const ko = {
   warning: "경고",
   critical: "임박",
   companionNotifications: "부화·진화·졸업 알림",
+  updates: "업데이트",
+  currentVersion: (v: string) => `현재 버전 ${v}`,
+  checkUpdates: "업데이트 확인",
+  checking: "확인 중…",
+  upToDate: "최신 버전이에요",
+  updateAvailable: (v: string) => `새 버전 ${v}이 있어요`,
+  updateNow: "지금 업데이트",
+  downloading: (p: number) => `다운로드 중 ${p}%`,
+  updateError: "업데이트 정보를 가져오지 못했어요",
 };
 
 type Dict = typeof ko;
@@ -160,6 +169,15 @@ const en: Dict = {
   warning: "Warning",
   critical: "Critical",
   companionNotifications: "Hatch · evolve · graduate alerts",
+  updates: "Updates",
+  currentVersion: (v) => `Current version ${v}`,
+  checkUpdates: "Check for updates",
+  checking: "Checking…",
+  upToDate: "You're up to date",
+  updateAvailable: (v) => `Version ${v} is available`,
+  updateNow: "Update now",
+  downloading: (p) => `Downloading ${p}%`,
+  updateError: "Couldn't check for updates",
 };
 
 const ja: Dict = {
@@ -239,6 +257,15 @@ const ja: Dict = {
   warning: "警告",
   critical: "間近",
   companionNotifications: "孵化・進化・卒業の通知",
+  updates: "アップデート",
+  currentVersion: (v) => `現在のバージョン ${v}`,
+  checkUpdates: "アップデートを確認",
+  checking: "確認中…",
+  upToDate: "最新バージョンです",
+  updateAvailable: (v) => `新しいバージョン ${v} があります`,
+  updateNow: "今すぐアップデート",
+  downloading: (p) => `ダウンロード中 ${p}%`,
+  updateError: "アップデート情報を取得できませんでした",
 };
 
 export const DICTS: Record<Lang, Dict> = { ko, en, ja };

@@ -19,6 +19,7 @@ import {
   sum,
   useBackend,
   useI18n,
+  useUpdater,
 } from "./shared";
 
 const PROVIDER: Record<string, string> = { claude: "Claude Code", codex: "Codex" };
@@ -151,6 +152,8 @@ type Tab = "home" | "dex" | "settings";
 function App() {
   const { usage, companion, limits, settings, saveSettings } = useBackend();
   const [tab, setTab] = useState<Tab>("home");
+  const updater = useUpdater();
+  const updateReady = updater.state.status === "available";
   const [toast, setToast] = useState<CompanionEvent | null>(null);
 
   useEffect(() => {
@@ -173,6 +176,7 @@ function App() {
         {(["home", "dex", "settings"] as Tab[]).map((k) => (
           <button key={k} className={tab === k ? "on" : ""} onClick={() => setTab(k)}>
             {k === "home" ? t.tabHome : k === "dex" ? t.tabDex : t.tabSettings}
+            {k === "settings" && updateReady && <span className="dot" aria-label={t.updates} />}
           </button>
         ))}
         <button className="icon" title={t.refresh} onClick={() => invoke("refresh_now")}>↻</button>
@@ -182,7 +186,7 @@ function App() {
         {tab === "home" && <Home usage={usage} companion={companion} limits={limits} settings={settings} />}
         {tab === "dex" && companion && <Dex c={companion} settings={settings} saveSettings={saveSettings} />}
         {tab === "settings" && companion && (
-          <SettingsView c={companion} settings={settings} saveSettings={saveSettings} />
+          <SettingsView c={companion} settings={settings} saveSettings={saveSettings} updater={updater} />
         )}
       </main>
     </I18n.Provider>

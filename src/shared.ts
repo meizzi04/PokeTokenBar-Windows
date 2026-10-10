@@ -2,6 +2,8 @@ import { createContext, useContext, useEffect, useState } from "react";
 import { invoke } from "@tauri-apps/api/core";
 import { listen } from "@tauri-apps/api/event";
 import { LogicalSize, PhysicalPosition, Window } from "@tauri-apps/api/window";
+import { check, Update } from "@tauri-apps/plugin-updater";
+import { relaunch } from "@tauri-apps/plugin-process";
 import { DICTS, Lang, nameLang } from "./i18n";
 
 export type Tokens = { input: number; output: number; cache_write: number; cache_read: number };
@@ -150,4 +152,50 @@ export async function resizePet(px: number) {
   const next = Math.round(px * scale);
   await w.setSize(new LogicalSize(px, px));
   await w.setPosition(new PhysicalPosition(pos.x + Math.round((size.width - next) / 2), pos.y + size.height - next));
+}
+
+export type UpdateState =
+  | { status: "idle" | "checking" | "none" | "error" }
+  | { status: "available"; update: Update }
+  | { status: "downloading"; update: Update; progress: number };
+
+/** In-app updater: checks GitHub Releases' latest.json once on open, installs on request. */
+export function useUpdater() {
+  const [state, setState] = useState<UpdateState>({ status: "idle" });
+
+  async function checkNow() {
+    setState({ status: "checking" });
+    try {
+      const update = await check();
+      setState(update ? { status: "available", update } : { status: "none" });
+    } catch {
+      setState({ status: "error" });
+    }
+  }
+
+  async function install() {
+    if (state.status !== "available") return;
+    const { update } = state;
+    let total = 0;
+    let received = 0;
+    setState({ status: "downloading", update, progress: 0 });
+    try {
+      await update.downloadAndInstall((e) => {
+        if (e.event === "Started") total = e.data.contentLength ?? 0;
+        if (e.event === "Progress") {
+          received += e.data.chunkLength;
+          setState({ status: "downloading", update, progress: total ? received / total : 0 });
+        }
+      });
+      // On Windows the installer usually closes the app itself; this covers the rest.
+      await relaunch();
+    } catch {
+      setState({ status: "error" });
+    }
+  }
+
+  useEffect(() => {
+    checkNow();
+  }, []);
+  return { state, checkNow, install };
 }
