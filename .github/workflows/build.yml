@@ -3,8 +3,17 @@ name: build
 on:
   push:
     branches: [main]
+    tags: ["v*"]
   pull_request:
   workflow_dispatch:
+
+# A newer push to the same branch supersedes the running build.
+concurrency:
+  group: build-${{ github.ref }}
+  cancel-in-progress: true
+
+permissions:
+  contents: write
 
 jobs:
   windows:
@@ -21,7 +30,14 @@ jobs:
           workspaces: src-tauri
       - run: npm ci
       - run: cargo test --manifest-path src-tauri/Cargo.toml
+      # A v* tag also publishes a GitHub Release with the installers attached.
       - uses: tauri-apps/tauri-action@v0
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        with:
+          tagName: ${{ github.ref_type == 'tag' && github.ref_name || '' }}
+          releaseName: PokeTokenBar for Windows ${{ github.ref_name }}
+          releaseBody: Windows 설치 파일. 서명이 없어 SmartScreen 경고가 뜨면 "추가 정보 → 실행"을 누르세요.
       - uses: actions/upload-artifact@v4
         with:
           name: poketokenbar-windows
