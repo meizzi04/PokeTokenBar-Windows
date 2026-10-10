@@ -40,6 +40,9 @@ jobs:
         with:
           tagName: ${{ github.ref_type == 'tag' && github.ref_name || '' }}
           releaseName: PokeTokenBar for Windows ${{ github.ref_name }}
+          # Users install with the NSIS .exe (install.ps1), so updates must use it too;
+          # an .msi update would install a second copy elsewhere.
+          updaterJsonPreferNsis: true
           releaseBody: Windows 설치 파일. 서명이 없어 SmartScreen 경고가 뜨면 "추가 정보 → 실행"을 누르세요.
       - uses: actions/upload-artifact@v4
         with:
