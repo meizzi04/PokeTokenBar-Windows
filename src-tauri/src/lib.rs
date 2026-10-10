@@ -42,6 +42,10 @@ pub fn run() {
         .plugin(tauri_plugin_opener::init())
         .invoke_handler(tauri::generate_handler![today_usage])
         .setup(|app| {
+            // Menu bar app like the original: no Dock icon.
+            #[cfg(target_os = "macos")]
+            app.set_activation_policy(tauri::ActivationPolicy::Accessory);
+
             let refresh_i = MenuItem::with_id(app, "refresh", "Refresh", true, None::<&str>)?;
             let quit_i = MenuItem::with_id(app, "quit", "Quit", true, None::<&str>)?;
             let menu = Menu::with_items(app, &[&refresh_i, &quit_i])?;
