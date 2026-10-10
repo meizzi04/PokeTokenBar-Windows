@@ -1,0 +1,14 @@
+:root {
+  font-family: system-ui, sans-serif;
+  color: #1f2328;
+  background: #ffffff;
+}
+@media (prefers-color-scheme: dark) {
+  :root { color: #e6edf3; background: #161b22; }
+}
+.container { padding: 20px; }
+h1 { margin: 0; font-size: 40px; }
+.muted { margin: 4px 0 16px; opacity: 0.6; }
+table { width: 100%; border-collapse: collapse; }
+td { padding: 6px 0; }
+td:last-child { text-align: right; font-variant-numeric: tabular-nums; }
